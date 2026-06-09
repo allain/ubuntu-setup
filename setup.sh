@@ -207,7 +207,21 @@ echo "Configuring Fish shell and cross-shell devenv environments..."
 
 # 1. Install Fish Shell
 sudo apt update -y
-sudo apt install -y fish curl wget git ripgrep gnupg unzip xz-utils glab gh gnome-shell-extension-manager wl-clipboard xclip direnv
+sudo apt install -y fish curl wget git ripgrep gnupg unzip xz-utils gh gnome-shell-extension-manager wl-clipboard xclip direnv
+
+# GitLab CLI (glab). Newer Ubuntu ships it in the apt repos (universe); older
+# releases don't package it, so fall back to the snap there. Probe apt rather
+# than hardcoding a version number so this tracks whenever the package lands.
+echo "Installing the GitLab CLI (glab)..."
+if ! command -v glab >/dev/null 2>&1; then
+    if apt-cache policy glab 2>/dev/null | grep -q 'Candidate: *[0-9]'; then
+        sudo apt install -y glab
+    elif command -v snap >/dev/null 2>&1; then
+        sudo snap install glab
+    else
+        echo "glab not in apt and snap unavailable — skipping glab." >&2
+    fi
+fi
 
 # 2. Change your default login shell to Fish natively
 if [ "$SHELL" != "/usr/bin/fish" ]; then
@@ -354,7 +368,9 @@ fish -c "fisher install edc/bass"
 echo "Installing Nix (multi-user) and devenv..."
 nix_profile_d="/nix/var/nix/profiles/default/etc/profile.d"
 if [ ! -e "$nix_profile_d/nix-daemon.sh" ] && [ ! -e "$nix_profile_d/nix-profile.sh" ]; then
-    sh <(curl -L https://nixos.org/nix/install) --daemon
+    # Fully non-interactive: piping `yes` answers the installer's confirmation
+    # prompt with the default ("y") so the script never blocks on input.
+    yes | sh <(curl -L https://nixos.org/nix/install) --daemon
 fi
 
 # devenv (and any flake-based `nix` usage) needs the nix-command + flakes
