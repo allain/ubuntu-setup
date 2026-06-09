@@ -207,7 +207,7 @@ echo "Configuring Fish shell and cross-shell devenv environments..."
 
 # 1. Install Fish Shell
 sudo apt update -y
-sudo apt install -y fish curl wget git ripgrep gnupg unzip xz-utils gh gnome-shell-extension-manager wl-clipboard xclip direnv
+sudo apt install -y fish curl wget git ripgrep gnupg unzip xz-utils gh gnome-shell-extension-manager wl-clipboard xclip direnv just
 
 # GitLab CLI (glab). Newer Ubuntu ships it in the apt repos (universe); older
 # releases don't package it, so fall back to the snap there. Probe apt rather
