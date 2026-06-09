@@ -207,7 +207,7 @@ echo "Configuring Fish shell and cross-shell devenv environments..."
 
 # 1. Install Fish Shell
 sudo apt update -y
-sudo apt install -y fish curl wget git ripgrep gnupg unzip xz-utils glab gh gnome-shell-extension-manager wl-clipboard xclip
+sudo apt install -y fish curl wget git ripgrep gnupg unzip xz-utils glab gh gnome-shell-extension-manager wl-clipboard xclip direnv
 
 # 2. Change your default login shell to Fish natively
 if [ "$SHELL" != "/usr/bin/fish" ]; then
