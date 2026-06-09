@@ -247,9 +247,11 @@ if [ -f "$HOME/.bashrc" ]; then
         cat << 'EOF' >> "$HOME/.bashrc"
 
 # --- Devenv & Direnv Integrations ---
-if [ -f "/nix/var/nix/profiles/default/etc/profile.d/nix-profile.sh" ]; then
-    . /nix/var/nix/profiles/default/etc/profile.d/nix-profile.sh
-fi
+# Multi-user Nix writes nix-daemon.sh; older/single-user layouts use nix-profile.sh.
+for nixsh in /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh \
+             /nix/var/nix/profiles/default/etc/profile.d/nix-profile.sh; do
+    [ -f "$nixsh" ] && . "$nixsh" && break
+done
 eval "$(direnv hook bash)"
 EOF
     fi
@@ -288,13 +290,17 @@ EOF
 fi
 
 # Idempotent blocks for fish config syntax
-if ! grep -q "nix-profile.sh" "$HOME/.config/fish/config.fish"; then
+if ! grep -q "nix-daemon.sh" "$HOME/.config/fish/config.fish"; then
     cat << 'EOF' >> "$HOME/.config/fish/config.fish"
 
 # --- Nix & Devenv Path Initialization ---
-# Safely sources the multi-user Nix script using Fish's built-in compatibility mode
-if test -f /nix/var/nix/profiles/default/etc/profile.d/nix-profile.sh
-    bass source /nix/var/nix/profiles/default/etc/profile.d/nix-profile.sh
+# Safely sources the multi-user Nix script using Fish's built-in compatibility mode.
+# Multi-user Nix writes nix-daemon.sh; older/single-user layouts use nix-profile.sh.
+for nixsh in /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh /nix/var/nix/profiles/default/etc/profile.d/nix-profile.sh
+    if test -f $nixsh
+        bass source $nixsh
+        break
+    end
 end
 
 # Hook direnv seamlessly into Fish
@@ -337,6 +343,39 @@ echo "Injecting Fisher (Plugin Manager) and Bass for Nix compatibility..."
 fish -c "curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source && fisher install jorgebucaran/fisher"
 fish -c "fisher install edc/bass"
 
+# -----------------------------------------------------------------------------
+# Nix (multi-user daemon) + devenv
+# -----------------------------------------------------------------------------
+# The shell profiles above source Nix's profile script and lean on direnv +
+# devenv; this section is what actually installs them. Nix goes in multi-user
+# (daemon) mode so the system-wide profile those configs expect exists. devenv
+# is then installed into the user's Nix profile. The installer is interactive
+# (it asks to proceed and may need sudo) — same as the rest of this script.
+echo "Installing Nix (multi-user) and devenv..."
+nix_profile_d="/nix/var/nix/profiles/default/etc/profile.d"
+if [ ! -e "$nix_profile_d/nix-daemon.sh" ] && [ ! -e "$nix_profile_d/nix-profile.sh" ]; then
+    sh <(curl -L https://nixos.org/nix/install) --daemon
+fi
+
+# devenv (and any flake-based `nix` usage) needs the nix-command + flakes
+# experimental features. Enable them system-wide in nix.conf, idempotently.
+sudo mkdir -p /etc/nix
+if [ ! -f /etc/nix/nix.conf ] || ! grep -q 'experimental-features' /etc/nix/nix.conf; then
+    echo "experimental-features = nix-command flakes" | sudo tee -a /etc/nix/nix.conf >/dev/null
+    sudo systemctl restart nix-daemon 2>/dev/null || true
+fi
+
+# Bring Nix onto PATH for the REST of this script run (the login-shell hooks
+# only fire in new sessions). Source whichever profile script the install wrote.
+for _nixsh in "$nix_profile_d/nix-daemon.sh" "$nix_profile_d/nix-profile.sh"; do
+    [ -e "$_nixsh" ] && . "$_nixsh" && break
+done
+
+# Install devenv into the user Nix profile if it's missing.
+if command -v nix >/dev/null 2>&1 && ! command -v devenv >/dev/null 2>&1; then
+    nix profile install --accept-flake-config nixpkgs#devenv
+fi
+
 # Docker Engine & Docker Compose V2
 echo "Setting up Docker Engine & Compose..."
 if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
@@ -361,6 +400,19 @@ echo "Installing Lazydocker..."
 if ! command -v lazydocker &> /dev/null; then
     curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
 fi
+
+# HashiCorp Nomad CLI (not in Ubuntu's repos — pulled from HashiCorp's apt repo)
+echo "Installing the Nomad CLI..."
+if [ ! -f /etc/apt/keyrings/hashicorp.gpg ]; then
+    sudo install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/hashicorp.gpg
+    sudo chmod a+r /etc/apt/keyrings/hashicorp.gpg
+
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") main" | sudo tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
+    sudo apt update -y
+fi
+sudo apt install -y nomad
 
 # L2TP/IPsec VPN support for NetworkManager (GNOME GUI integration)
 echo "Installing GNOME L2TP NetworkManager plugin..."
