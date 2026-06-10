@@ -207,7 +207,7 @@ echo "Configuring Fish shell and cross-shell devenv environments..."
 
 # 1. Install Fish Shell
 sudo apt update -y
-sudo apt install -y fish curl wget git ripgrep gnupg unzip xz-utils gh gnome-shell-extension-manager wl-clipboard xclip direnv just
+sudo apt install -y fish curl wget git ripgrep gnupg unzip xz-utils gh gnome-shell-extension-manager wl-clipboard xclip direnv just cloc
 
 # GitLab CLI (glab). Newer Ubuntu ships it in the apt repos (universe); older
 # releases don't package it, so fall back to the snap there. Probe apt rather
@@ -585,6 +585,25 @@ if ! command -v code &> /dev/null; then
     sudo apt update -y
 fi
 sudo apt install -y code
+
+# Google Chrome (stable). Not in Ubuntu's repos — pulled from Google's apt repo.
+# Google only ships an amd64 Linux package, so skip on other architectures.
+echo "Installing Google Chrome..."
+if [ "$(dpkg --print-architecture)" = "amd64" ]; then
+    if [ ! -f /etc/apt/keyrings/google-chrome.gpg ]; then
+        sudo install -m 0755 -d /etc/apt/keyrings
+        wget -qO- https://dl.google.com/linux/linux_signing_key.pub \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
+        sudo chmod a+r /etc/apt/keyrings/google-chrome.gpg
+
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+            | sudo tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+        sudo apt update -y
+    fi
+    sudo apt install -y google-chrome-stable
+else
+    echo "Google Chrome has no $(dpkg --print-architecture) package — skipping." >&2
+fi
 
 # -----------------------------------------------------------------------------
 # Node.js (latest "Current" release, installed globally under /usr/local)
