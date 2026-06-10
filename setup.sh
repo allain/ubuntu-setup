@@ -207,7 +207,7 @@ echo "Configuring Fish shell and cross-shell devenv environments..."
 
 # 1. Install Fish Shell
 sudo apt update -y
-sudo apt install -y fish curl wget git ripgrep gnupg unzip xz-utils gh gnome-shell-extension-manager wl-clipboard xclip direnv just cloc
+sudo apt install -y fish curl wget git ripgrep gnupg unzip xz-utils glab gh gnome-shell-extension-manager wl-clipboard xclip direnv just cloc glow
 
 # GitLab CLI (glab). Newer Ubuntu ships it in the apt repos (universe); older
 # releases don't package it, so fall back to the snap there. Probe apt rather
@@ -611,6 +611,7 @@ fi
 # Pulls whatever nodejs.org currently publishes as "latest" rather than pinning
 # a major, so re-running the script tracks new releases. The official prebuilt
 # tarball is extracted straight into /usr/local (node/npm/npx land in
+#
 # /usr/local/bin, modules in /usr/local/lib) — a system-wide, global install.
 echo "Installing the latest Node.js..."
 case "$(dpkg --print-architecture)" in
@@ -643,6 +644,8 @@ if [ -n "$node_arch" ]; then
         fi
     fi
 fi
+
+sudo npm i -g @openai/codex
 
 # Neovim (Latest Stable Binary AppImage deployment)
 # Neovim dropped the generic nvim.appimage asset; assets are now arch-specific.
