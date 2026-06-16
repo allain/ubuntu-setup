@@ -318,7 +318,7 @@ for nixsh in /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh /nix/var/
 end
 
 # Hook direnv seamlessly into Fish
-if command -v direnv &> /dev/null
+if type -q direnv
     direnv hook fish | source
 end
 EOF
